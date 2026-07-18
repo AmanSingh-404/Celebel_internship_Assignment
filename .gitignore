@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+
+# Large generated artifacts - don't commit these
+data/faiss_index.bin
+data/chunks.pkl
+
+# Optional: exclude large source PDFs if you don't want to commit them
+# data/*.pdf
+
+.vscode/
+.idea/
