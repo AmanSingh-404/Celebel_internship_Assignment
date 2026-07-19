@@ -1,29 +1,6 @@
-"""
-RAG Document Question Answering System
-=======================================
-A single-file Retrieval-Augmented Generation pipeline that answers
-questions from custom documents (PDF/TXT).
 
-Pipeline stages (per assignment spec):
-  1. Document Ingestion    - load PDF/TXT, clean raw text
-  2. Text Chunking         - split into overlapping chunks
-  3. Embedding Creation     - sentence-transformers (all-MiniLM-L6-v2)
-  4. Vector Database        - FAISS index, persisted to disk
-  5. Query Processing       - embed the user's question
-  6. Context Retrieval      - similarity search over the index
-  7. Answer Generation      - grounded prompt -> local LLM (flan-t5-base)
-  8. Optimizations          - sentence-aware chunking, hybrid BM25+vector
-                              search, cross-encoder re-ranking
+# RAG Document Question Answering System
 
-Usage:
-    python rag_pipeline.py --build data/document.pdf
-    python rag_pipeline.py --ask "What is this document about?"
-    python rag_pipeline.py --ask "..." --hybrid --rerank   # use optimizations
-
-Requirements:
-    pip install sentence-transformers faiss-cpu pypdf transformers torch
-    numpy rank_bm25 sentencepiece
-"""
 
 import os
 import re
@@ -38,9 +15,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from rank_bm25 import BM25Okapi
 
 
-# =========================================================
-# Config
-# =========================================================
+
 INDEX_PATH = "data/faiss_index.bin"
 CHUNKS_PATH = "data/chunks.pkl"
 EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
@@ -53,9 +28,7 @@ _gen_model = None
 _reranker = None
 
 
-# =========================================================
 # Step 1: Document Ingestion
-# =========================================================
 def load_pdf(file_path: str) -> str:
     reader = PdfReader(file_path)
     text = ""
@@ -88,9 +61,7 @@ def load_document(file_path: str) -> str:
     return clean_text(raw)
 
 
-# =========================================================
 # Step 2: Text Chunking (+ Step 8a optimization: sentence-aware)
-# =========================================================
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list:
     """Fixed-size character chunking with overlap (baseline method)."""
     if chunk_size <= overlap:
@@ -123,9 +94,7 @@ def chunk_text_by_sentences(text: str, max_chars: int = 500) -> list:
     return chunks
 
 
-# =========================================================
 # Step 3: Embeddings
-# =========================================================
 def get_embed_model() -> SentenceTransformer:
     global _embed_model
     if _embed_model is None:
@@ -144,9 +113,8 @@ def embed_query(query: str) -> np.ndarray:
     return model.encode([query], convert_to_numpy=True)[0]
 
 
-# =========================================================
+
 # Step 4: Vector Database (FAISS)
-# =========================================================
 def build_index(embeddings: np.ndarray) -> faiss.Index:
     dim = embeddings.shape[1]
     index = faiss.IndexFlatL2(dim)
@@ -171,9 +139,7 @@ def load_index():
     return index, chunks
 
 
-# =========================================================
 # Steps 5 & 6: Query Processing + Retrieval
-# =========================================================
 def vector_retrieve(query: str, top_k: int = 3):
     index, chunks = load_index()
     query_vector = embed_query(query).reshape(1, -1)
@@ -228,9 +194,7 @@ def rerank(query: str, candidates: list, top_k: int = 3):
     return ranked[:top_k]
 
 
-# =========================================================
 # Step 7: Answer Generation
-# =========================================================
 def get_generator():
     global _gen_tokenizer, _gen_model
     if _gen_model is None:
@@ -272,9 +236,6 @@ def generate_answer(query: str, top_k: int = 3, use_hybrid: bool = False, use_re
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 
-# =========================================================
-# Build & Ask entry points
-# =========================================================
 def build(file_path: str, chunk_size: int = 500, overlap: int = 50, sentence_aware: bool = False):
     print(f"Loading document: {file_path}")
     text = load_document(file_path)
@@ -300,9 +261,6 @@ def ask(query: str, top_k: int = 3, use_hybrid: bool = False, use_rerank: bool =
     print(f"Answer: {answer}")
 
 
-# =========================================================
-# CLI
-# =========================================================
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RAG Document Question Answering pipeline")
     parser.add_argument("--build", type=str, help="Path to document to ingest and index")
